@@ -1,6 +1,16 @@
 import sys
+import os
 import shlex
 import re
+import time
+import datetime
+starttime = time.perf_counter()
+
+def dumpfilename():
+ now = datetime.datetime.now()
+ timestamp_str = now.strftime("%m%d%H")
+ filename = f"dump-{timestamp_str}.vtd"
+ return filename
 
 labels = {}
 
@@ -23,6 +33,10 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+def handle_wait(parts):
+ sleeptime = (int(parts[1]))/100
+ time.sleep(sleeptime)
+
 def handle_call(parts):
     global instruction_pointer, subroutines, return_stack
     if len(parts) != 2:
@@ -34,7 +48,7 @@ def handle_call(parts):
         print(f"Error: Undefined subroutine '{subroutine_name}' on Line {instruction_pointer + 1}")
         exit()
 
-    return_stack.append(instruction_pointer + 1)  # Store the return address
+    return_stack.append(instruction_pointer)  # Store the return address
 
     subroutine_code = subroutines[subroutine_name]['code']
     subroutine_ip = 0
@@ -75,7 +89,6 @@ def handle_sub(parts):
             return  # Exit handle_sub
         subroutines[subroutine_name]['code'].append(line)
         instruction_pointer += 1
-
     print(f"Error: Missing ENDSUB for subroutine '{subroutine_name}'")
     exit()
 
@@ -86,12 +99,12 @@ def handle_endsub(parts):
 
 def handle_loop(parts):
     global instruction_pointer, stacks, registers
+    global start_ip
     if "LTM" not in registers or "CLI" not in registers:
         error("LTM or CLI not initialized")
 
     ltm = registers["LTM"]
-    stacks.setdefault("_loop_stack", [])
-    stacks["_loop_stack"].append((instruction_pointer + 1, ltm))
+    start_ip = instruction_pointer
     registers["CLI"] += 1
       # Increment to move past LOOP
 
@@ -99,18 +112,12 @@ def handle_endloop(parts):
     global instruction_pointer, stacks, registers
     if "CLI" not in registers:
         error("LTM or CLI not initialized")
-
+    ltm = registers["LTM"]
     registers["CLI"] += 1
-
-    if not stacks.get("_loop_stack"):
-        error("No existing or matching LOOP")
-
-    start_ip, ltm = stacks["_loop_stack"][-1]
 
     if ltm == 0 or registers["CLI"] <= ltm:
         instruction_pointer = start_ip  # Go back to the start of the loop
     else:
-        stacks["_loop_stack"].pop()
         registers["CLI"] = 0
           # Let main loop handle increment
 
@@ -173,12 +180,16 @@ def handle_ops(parts):
             exit()
 
 def handle_dump(parts):
+  filename = dumpfilename()
   if len(parts) == 1:
     print(stacks)
     exit()
   elif parts[1] == "@":
     print(stacks[curstack])
     exit()
+  elif parts[1] == "LOGS":
+    with open(filename, 'w') as dumpfile:
+     dumpfile.write(f"==={sys.argv[1]} LOG DUMP===\n"+dump+"\n")
   else:
     print("ERROR: Invalid on line "+str(instruction_pointer+1))
     exit()
@@ -331,14 +342,14 @@ def get_value(operand):
             pass
     elif operand.startswith('"') and operand.endswith('"'):
         return operand[1:-1]
+    elif operand.startswith('$"') and operand.endswith('"'):
+        return len(operand[1:-1])
     elif operand.upper() == "TRUE":
         return 1
     elif operand.upper() == "FALSE":
         return 0
     elif operand in registers:
         return registers[operand]
-    elif operand == "IDA":
-        return ida
     elif operand.startswith("$"):
         stack_reg_name = operand[1:]
         if stack_reg_name in stacks:
@@ -368,6 +379,9 @@ def get_value(operand):
         else:
             print(f"Error: No stack selected for '@' on Line {instruction_pointer + 1}")
             exit()
+    elif operand == "#":
+      txt = "\n".join(map(str, stacks[curstack]))
+      return txt
     else:
         return operand
 
@@ -430,7 +444,6 @@ def handle_pop(parts):
             try:
                 if curstack and stacks[curstack]:
                     registers[reg] = stacks[curstack].pop()
-                    instruction_pointer += 1
                 elif not curstack:
                     print(f"Error: No stack selected for POP on Line {instruction_pointer + 1}")
                     exit()
@@ -556,14 +569,3 @@ def handle_jumpneq(parts):
         else:
             print(f"Error: Undefined label '{label_to_jump}' for JUMPNEQ on Line {instruction_pointer + 1}")
             exit()
-    else:
-        print(f"Syntax Error: Invalid JUMPNEQ syntax on Line {instruction_pointer + 1}")
-        exit()
-
-def handle_jumpeq(parts):
-    global instruction_pointer, comparison_flags
-    if len(parts) == 2:
-        label_to_jump = parts[1]
-        if label_to_jump in labels:
-            if comparison_flags["equal"]:
-                instruction_pointer
