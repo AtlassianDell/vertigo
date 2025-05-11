@@ -5,10 +5,11 @@ import re
 import time
 import datetime
 starttime = time.perf_counter()
+opt = True
 
 def dumpfilename():
  now = datetime.datetime.now()
- timestamp_str = now.strftime("%m%d%H")
+ timestamp_str = now.strftime("%m%d%S")
  filename = f"dump-{timestamp_str}.vtd"
  return filename
 
@@ -569,3 +570,198 @@ def handle_jumpneq(parts):
         else:
             print(f"Error: Undefined label '{label_to_jump}' for JUMPNEQ on Line {instruction_pointer + 1}")
             exit()
+    else:
+        print(f"Syntax Error: Invalid JUMPNEQ syntax on Line {instruction_pointer + 1}")
+        exit()
+
+def handle_jumpeq(parts):
+    global instruction_pointer, comparison_flags
+    if len(parts) == 2:
+        label_to_jump = parts[1]
+        if label_to_jump in labels:
+            if comparison_flags["equal"]:
+                instruction_pointer = labels[label_to_jump]
+        else:
+            print(f"Error: Undefined label '{label_to_jump}' for JUMPEQ on Line {instruction_pointer + 1}")
+            exit()
+    else:
+        print(f"Syntax Error: Invalid JUMPEQ syntax on Line {instruction_pointer + 1}")
+        exit()
+
+def handle_cmp(parts):
+    global instruction_pointer, comparison_flags
+    if len(parts) == 3:
+        operand1 = get_value(parts[1])
+        operand2 = get_value(parts[2])
+
+        if isinstance(operand1, (int, float)) and isinstance(operand2, (int, float)):
+            comparison_flags["equal"] = (operand1 == operand2)
+            comparison_flags["greater"] = (operand1 > operand2)
+            comparison_flags["less"] = (operand1 < operand2)
+        elif isinstance(operand1, str) and isinstance(operand2, str):
+            comparison_flags["equal"] = (operand1 == operand2)
+            comparison_flags["greater"] = (operand1 > operand2)
+            comparison_flags["less"] = (operand1 < operand2)
+        else:
+            print(f"Error: CMP operands must be of the same type (number or string) on Line {instruction_pointer + 1}")
+            exit()
+
+    else:
+        print(f"Syntax Error: Invalid CMP syntax on Line {instruction_pointer + 1}")
+        exit()
+
+def handle_point(parts):
+    global instruction_pointer
+
+def handle_in(parts):
+    global instruction_pointer, registers
+    if len(parts) > 0:
+        prompt_parts = shlex.split(" ".join(parts[1:]))
+        if prompt_parts:
+            prompt_str = prompt_parts[0]
+            try:
+                prompt = eval(prompt_str)
+                if not isinstance(prompt, str):
+                    prompt = str(prompt)
+                user_input = input(prompt)
+                registers["IDA"] = user_input
+            except (NameError, TypeError, SyntaxError):
+                print(f"Error: Invalid prompt expression '{prompt_str}' for IN on Line {instruction_pointer + 1}")
+                exit()
+        else:
+            user_input = input()
+            registers["IDA"] = user_input
+    else:
+        print(f"Syntax Error: Invalid IN syntax. Expected a prompt after 'IN' on Line {instruction_pointer + 1}")
+        exit()
+
+def handle_concat(parts):
+    global instruction_pointer, registers
+    if len(parts) == 4:
+        dest_reg = parts[1]
+        val1 = get_value(parts[2])
+        val2 = get_value(parts[3])
+
+        str1 = str(val1)
+        str2 = str(val2)
+
+        if dest_reg in registers:
+            registers[dest_reg] = str1 + str2
+        else:
+            print(f"Error: Invalid destination register '{dest_reg}' for CONCAT on Line {instruction_pointer + 1}")
+            exit()
+    else:
+        print(f"Syntax Error: Invalid CONCAT syntax on Line {instruction_pointer + 1}")
+        exit()
+
+def handle_strlen(parts):
+    global instruction_pointer, registers
+    if len(parts) == 3:
+        dest_reg = parts[1]
+        string = get_value(parts[2])
+        if dest_reg in registers and isinstance(string, str):
+            registers[dest_reg] = len(string)
+        elif dest_reg not in registers:
+            print(f"Error: Invalid destination register '{dest_reg}' for STRLEN on Line {instruction_pointer + 1}")
+            exit()
+        else:
+            print(f"Error: STRLEN operand must be a string on Line {instruction_pointer + 1}")
+            exit()
+    else:
+        print(f"Syntax Error: Invalid STRLEN syntax on Line {instruction_pointer + 1}")
+        exit()
+def handle_strcmp(parts):
+        global instruction_pointer, comparison_flags
+        if len(parts) == 3:
+          str1 = get_value(parts[1])
+          str2 = get_value(parts[2])
+          if isinstance(str1, str) and isinstance(str2, str):
+            comparison_flags["equal"] = (str1 == str2)
+            comparison_flags["greater"] = (str1 > str2)
+            comparison_flags["less"] = (str1 < str2)
+          else:
+            print(f"Error: STRCMP operands must be strings on Line {instruction_pointer + 1}")
+            exit()
+        else:
+          print(f"Syntax Error: Invalid STRCMP syntax on Line {instruction_pointer + 1}")
+          exit()
+
+labels_pass = {}
+for line_num, line in enumerate(file):
+    line = line.split(';')[0].strip()
+    parts = shlex.split(line)
+    if parts and parts[0] == "POINT":
+        if len(parts) == 2:
+            label_name = parts[1]
+            if label_name in labels_pass:
+                print(f"Error: Duplicate label '{label_name}' on Line {line_num + 1}")
+                exit()
+            labels_pass[label_name] = line_num
+
+labels = labels_pass
+
+instruction_handlers = {
+    "NEW": handle_new,
+    "PUSH": handle_push,
+    "DUP": handle_dup,
+    "DROP": handle_rm,
+    "STEP": handle_step,
+    "POP": handle_pop,
+    "MATH": handle_math,
+    "REG": handle_reg,
+    "JUMP": handle_jump,
+    "JUMPEQ": handle_jumpeq,
+    "CMP": handle_cmp,
+    "POINT": handle_point,
+    "IN": handle_in,
+    "CONCAT": handle_concat,
+    "STRLEN": handle_strlen,
+    "STRCMP": handle_strcmp,
+    "JUMPGT": handle_jumpgt,
+    "JUMPLT": handle_jumplt,
+    "JUMPNEQ": handle_jumpneq,
+    "SWAP": handle_swap,
+    "PICK": handle_pick,
+    "PPICK": handle_ppick,
+    "CLEAR": handle_clear,
+    "RROT": handle_rrot,
+    "ROT": handle_rot,
+    "DUMP": handle_dump,
+    "OPS": handle_ops,
+    "LOOP": handle_loop,
+    "ENDLOOP": handle_endloop,
+    "SUB": handle_sub,
+    "ENDSUB": handle_endsub,
+    "CALL": handle_call,
+    "WAIT": handle_wait
+}
+instruction_pointer = 0
+dump = ""
+
+while instruction_pointer < len(file):
+ try:
+    curtime = time.perf_counter() - starttime
+    line = file[instruction_pointer].split(';')[0].strip()
+    parts = shlex.split(line)
+    if parts:
+        instruction = parts[0]
+        if instruction in instruction_handlers:
+            instruction_handlers[instruction](parts)
+            if instruction != "SUB":
+                instruction_pointer += 1
+        elif line in stacks.keys():
+            curstack = parts[0]
+            instruction_pointer += 1
+        elif not line:
+            instruction_pointer += 1
+        else:
+            print(f"Syntax Error: Unknown instruction '{instruction}' on Line {instruction_pointer + 1}")
+            exit()
+    else:
+        instruction_pointer += 1
+    dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
+ except KeyboardInterrupt:
+    print("KeyboardInterrupt")
+    if opt == True:
+     handle_dump(["DUMP","LOGS"])
+    exit()
