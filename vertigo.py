@@ -2,9 +2,6 @@ import sys
 import os
 import re
 import time
-import cProfile
-import pstats
-import io
 import datetime
 import re
 starttime = time.perf_counter()
@@ -751,8 +748,6 @@ if len(sys.argv) != 2:
  for i in range(len(sys.argv[2:])):
   registers[f"LIN{i}"] = get_value(sys.argv[2:][i])
 
-profile = cProfile.Profile()
-profile.enable()
 while instruction_pointer < len(file):
  try:
     curtime = time.perf_counter() - starttime
@@ -780,9 +775,3 @@ while instruction_pointer < len(file):
     if opt == True:
      handle_dump(["DUMP","LOGS"])
     exit()
-profile.disable()
-
-s = io.StringIO()
-ps = pstats.Stats(profile, stream=s).sort_stats('tottime')
-ps.print_stats()
-print(s.getvalue())
