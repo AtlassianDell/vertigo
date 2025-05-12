@@ -1,11 +1,19 @@
 import sys
 import os
-import shlex
 import re
 import time
+import cProfile
+import pstats
+import io
 import datetime
+import re
 starttime = time.perf_counter()
-opt = True
+
+FIELDS_PATTERN = re.compile(r"(?:\"(.*?)\"|(\S+))")
+
+class shlex:
+ def split(data):
+  return [x[0] or x[1] for x in FIELDS_PATTERN.findall(data)]
 
 def dumpfilename():
  now = datetime.datetime.now()
@@ -327,9 +335,13 @@ def handle_swap(parts):
     stack[-1], stack[-2] = stack[-2], stack[-1]
 
 def regstep():
+  try:
     if registers["ODA"] != None:
-        print(registers["ODA"])
-        registers["ODA"] = None
+     print(registers["ODA"])
+     registers["ODA"] = None
+  except:
+    print("ODA failed to output")
+    exit()
 
 def get_value(operand):
     global stacks, curstack, registers, ida
@@ -343,8 +355,6 @@ def get_value(operand):
             pass
     elif operand.startswith('"') and operand.endswith('"'):
         return operand[1:-1]
-    elif operand.startswith('$"') and operand.endswith('"'):
-        return len(operand[1:-1])
     elif operand.upper() == "TRUE":
         return 1
     elif operand.upper() == "FALSE":
@@ -384,8 +394,7 @@ def get_value(operand):
       txt = "\n".join(map(str, stacks[curstack]))
       return txt
     else:
-        return operand
-
+      return operand
 def handle_new(parts):
     global instruction_pointer
     if len(parts) == 2:
@@ -738,6 +747,12 @@ instruction_handlers = {
 instruction_pointer = 0
 dump = ""
 
+if len(sys.argv) != 2:
+ for i in range(len(sys.argv[2:])):
+  registers[f"LIN{i}"] = get_value(sys.argv[2:][i])
+
+profile = cProfile.Profile()
+profile.enable()
 while instruction_pointer < len(file):
  try:
     curtime = time.perf_counter() - starttime
@@ -765,3 +780,9 @@ while instruction_pointer < len(file):
     if opt == True:
      handle_dump(["DUMP","LOGS"])
     exit()
+profile.disable()
+
+s = io.StringIO()
+ps = pstats.Stats(profile, stream=s).sort_stats('tottime')
+ps.print_stats()
+print(s.getvalue())
