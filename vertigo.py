@@ -622,15 +622,13 @@ def handle_point(parts):
 def handle_in(parts):
     global instruction_pointer, registers
     if len(parts) > 0:
-        prompt_parts = shlex.split(" ".join(parts[1:]))
+        prompt_parts = "filler"
         if prompt_parts:
-            prompt_str = prompt_parts[0]
+            prompt_str = parts[1]
             try:
-                prompt = eval(prompt_str)
-                if not isinstance(prompt, str):
-                    prompt = str(prompt)
+                prompt = str(prompt_str)
                 user_input = input(prompt)
-                registers["IDA"] = user_input
+                registers["IDA"] = eval(user_input)
             except (NameError, TypeError, SyntaxError):
                 print(f"Error: Invalid prompt expression '{prompt_str}' for IN on Line {instruction_pointer + 1}")
                 exit()
@@ -772,6 +770,4 @@ while instruction_pointer < len(file):
     dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
  except KeyboardInterrupt:
     print("KeyboardInterrupt")
-    if opt == True:
-     handle_dump(["DUMP","LOGS"])
     exit()
