@@ -41,6 +41,7 @@ subroutine_return_address = None
 
 def handle_bring(parts):
  imfile = open(parts[1]).read().split("\n")
+ subroutines[parts[1].split(".")[0]] = {"code": imfile}
 
 def handle_wait(parts):
  sleeptime = (int(parts[1]))/100
