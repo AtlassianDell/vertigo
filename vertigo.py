@@ -39,6 +39,11 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+
+def handle_import(parts):
+ mfile = open(parts[1]+".py").read()
+ exec(mfile)
+
 def handle_bring(parts):
     global instruction_pointer, subroutines
     if len(parts) != 2:
@@ -760,7 +765,8 @@ instruction_handlers = {
     "ENDSUB": handle_endsub,
     "CALL": handle_call,
     "WAIT": handle_wait,
-    "BRING": handle_bring
+    "BRING": handle_bring,
+    "IMPORT": handle_import
 }
 instruction_pointer = 0
 dump = ""
