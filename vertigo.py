@@ -39,6 +39,9 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+def handle_bring(parts):
+ imfile = open(parts[1]).read().split("\n")
+
 def handle_wait(parts):
  sleeptime = (int(parts[1]))/100
  time.sleep(sleeptime)
@@ -125,6 +128,7 @@ def handle_endloop(parts):
         instruction_pointer = start_ip  # Go back to the start of the loop
     else:
         registers["CLI"] = 0
+        registers["LTM"] = 0
           # Let main loop handle increment
 
 
@@ -331,14 +335,6 @@ def handle_swap(parts):
     stack = stacks[curstack]
     stack[-1], stack[-2] = stack[-2], stack[-1]
 
-def regstep():
-  try:
-    if registers["ODA"] != None:
-     print(registers["ODA"])
-     registers["ODA"] = None
-  except:
-    print("ODA failed to output")
-    exit()
 
 def get_value(operand):
     global stacks, curstack, registers, ida
@@ -439,9 +435,6 @@ def handle_rm(parts):
         print(f"Error: Stack "+curstack+" is empty on Line {instruction_pointer + 1}")
         exit()
 
-def handle_step(parts):
-    global instruction_pointer
-    regstep()
 
 def handle_pop(parts):
     global instruction_pointer
@@ -709,7 +702,6 @@ instruction_handlers = {
     "PUSH": handle_push,
     "DUP": handle_dup,
     "DROP": handle_rm,
-    "STEP": handle_step,
     "POP": handle_pop,
     "MATH": handle_math,
     "REG": handle_reg,
@@ -737,7 +729,8 @@ instruction_handlers = {
     "SUB": handle_sub,
     "ENDSUB": handle_endsub,
     "CALL": handle_call,
-    "WAIT": handle_wait
+    "WAIT": handle_wait,
+    "BRING": handle_bring
 }
 instruction_pointer = 0
 dump = ""
@@ -768,6 +761,9 @@ while instruction_pointer < len(file):
     else:
         instruction_pointer += 1
     dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
+    if registers["ODA"] is not None:
+        print(registers["ODA"])
+        registers["ODA"] = None
  except KeyboardInterrupt:
     print("KeyboardInterrupt")
     exit()
