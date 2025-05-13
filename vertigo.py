@@ -40,8 +40,37 @@ current_subroutine_ip = 0
 subroutine_return_address = None
 
 def handle_bring(parts):
- imfile = open(parts[1]).read().split("\n")
- subroutines[parts[1].split(".")[0]] = {"code": imfile}
+    global instruction_pointer, subroutines
+    if len(parts) != 2:
+        print(f"Syntax Error: Invalid BRING syntax on Line {instruction_pointer + 1}")
+        exit()
+
+    library_filename = parts[1]
+    try:
+        with open(library_filename, 'r') as lib_file:
+            library_content = lib_file.read()
+    except FileNotFoundError:
+        print(f"Error: Library file '{library_filename}' not found")
+        exit()
+
+    blocks = library_content.strip().split(':')
+
+    i = 0
+    while i < len(blocks):
+        if blocks[i].strip():
+            subroutine_name = blocks[i].strip()
+            i += 1
+            subroutine_code = []
+            if i < len(blocks):
+                code_lines = blocks[i].strip().split('\n')
+                for line in code_lines:
+                    if line.strip():  # Ignore empty lines within the subroutine
+                        subroutine_code.append(line)
+                subroutines[subroutine_name] = {'code': subroutine_code, 'from_library': True} # Mark as from library
+            else:
+                print(f"Error: Subroutine '{subroutine_name}' in library '{library_filename}' has no code.")
+                exit()
+        i += 1
 
 def handle_wait(parts):
  sleeptime = (int(parts[1]))/100
