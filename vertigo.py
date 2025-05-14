@@ -14,7 +14,7 @@ class shlex:
 
 def dumpfilename():
  now = datetime.datetime.now()
- timestamp_str = now.strftime("%m%d%S")
+ timestamp_str = now.strftime("%M%S%Y")
  filename = f"dump-{timestamp_str}.vtd"
  return filename
 
@@ -22,6 +22,7 @@ labels = {}
 
 file = open(sys.argv[1]).read().split("\n")
 
+immutables = {"pi": 3.14}
 stacks = {"_loop_stack":[]}
 curstack = ""
 registers = {
@@ -39,6 +40,14 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+def handle_im(parts):
+ name = f"+{parts[1]}"
+ value = get_value(parts[2])
+ if name in immutables:
+  pass
+  dump += f"\n Immutable {name} already defined, skipping" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
+ else:
+  immutables[name] = value
 
 def handle_import(parts):
  mfile = open(parts[1]+".py").read()
@@ -381,6 +390,8 @@ def get_value(operand):
             return float(operand)
         except ValueError:
             pass
+    elif operand in immutables:
+         return immutables[operand]
     elif operand.startswith('"') and operand.endswith('"'):
         return operand[1:-1]
     elif operand.upper() == "TRUE":
@@ -766,7 +777,8 @@ instruction_handlers = {
     "CALL": handle_call,
     "WAIT": handle_wait,
     "BRING": handle_bring,
-    "IMPORT": handle_import
+    "IMPORT": handle_import,
+    "IM": handle_im
 }
 instruction_pointer = 0
 dump = ""
