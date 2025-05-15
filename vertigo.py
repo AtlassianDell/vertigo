@@ -40,6 +40,10 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+def error(p):
+ print(p)
+ exit()
+
 def handle_im(parts):
  name = f"+{parts[1]}"
  value = get_value(parts[2])
