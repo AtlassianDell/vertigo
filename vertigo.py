@@ -6,6 +6,14 @@ import datetime
 import re
 starttime = time.perf_counter()
 
+errors = {
+ 0x2: "Syntax Error: at line {line}",
+ 0x1: "Exception: at line {line}",
+ 0x10: "Exception; Special: Unknown Destination at line {line}"
+ 0x11: "Exception; Special: Already exists at line {line}"
+ 0x21: "Syntax Error: ENDSUB is missing at line {line}"
+}
+
 dump = ""
 
 settings = {
@@ -71,6 +79,7 @@ def handle_set(parts):
  global dump
  if len(parts) != 3:
   dump += f"Setting failure\n" + f"{instruction_pointer + 1}  " + f"[{curtime:.4f}] "
+  error(0x1)
   exit()
  setting = parts[1]
  set = eval(parts[2])
@@ -81,9 +90,15 @@ def handle_int(parts):
  intpoint = idt[eval(parts[1])]
  intpoint()
 
-def error(p):
- print(p)
- exit()
+def error(error_code):
+    line_number = instruction_pointer + 1
+    if error_code in errors:
+        print(errors[error_code].format(line=line_number))
+    else:
+        print(f"Unknown error code: {error_code} at line {line_number}")
+    global dump, curtime
+    dump += f"Error triggered with type {error_code}\n" + f"{line_number}  " + f"[{curtime:.4f}] "
+    exit()
 
 def handle_im(parts):
  global dump
@@ -96,23 +111,23 @@ def handle_im(parts):
   immutables[name] = value
 
 def handle_import(parts):
- mfile = open(parts[1]+".py").read()
- exec(mfile)
+ try:
+  mfile = open(parts[1]+".py").read()
+  exec(mfile)
+ except:
+  error(0x10)
 
 def handle_bring(parts):
     global instruction_pointer, subroutines
     if len(parts) != 2:
-        print(f"Syntax Error: Invalid BRING syntax on Line {instruction_pointer + 1}")
-        exit()
+        error(0x0)
 
     library_filename = parts[1]
     try:
         with open(library_filename, 'r') as lib_file:
             library_content = lib_file.read()
     except FileNotFoundError:
-        print(f"Error: Library file '{library_filename}' not found")
-        exit()
-
+     error(0x10)
     blocks = library_content.strip().split(':')
 
     i = 0
@@ -128,8 +143,7 @@ def handle_bring(parts):
                         subroutine_code.append(line)
                 subroutines[subroutine_name] = {'code': subroutine_code, 'from_library': True} # Mark as from library
             else:
-                print(f"Error: Subroutine '{subroutine_name}' in library '{library_filename}' has no code.")
-                exit()
+             error(0x10)
         i += 1
 
 def handle_wait(parts):
@@ -139,8 +153,7 @@ def handle_wait(parts):
 def handle_call(parts):
     global instruction_pointer, subroutines, return_stack
     if len(parts) != 2:
-        print(f"Syntax Error: CALL instruction requires a subroutine name on Line {instruction_pointer + 1}")
-        exit()
+     error(0x2)
 
     subroutine_name = parts[1]
     if subroutine_name not in subroutines:
@@ -169,13 +182,10 @@ def handle_call(parts):
 def handle_sub(parts):
     global instruction_pointer, file, subroutines
     if len(parts) < 2:
-        print(f"Syntax Error: SUB instruction requires a subroutine name on Line {instruction_pointer + 1}")
-        exit()
-
+     error(0x0)
     subroutine_name = parts[1]
     if subroutine_name in subroutines:
-        print(f"Error: Subroutine '{subroutine_name}' already defined on Line {instruction_pointer + 1}")
-        exit()
+     error(0x11)
 
     subroutines[subroutine_name] = {'code': [], 'start': instruction_pointer + 1}
     instruction_pointer += 1  # Move past the SUB line
@@ -188,8 +198,7 @@ def handle_sub(parts):
             return  # Exit handle_sub
         subroutines[subroutine_name]['code'].append(line)
         instruction_pointer += 1
-    print(f"Error: Missing ENDSUB for subroutine '{subroutine_name}'")
-    exit()
+    error(0x21)
 
 def handle_endsub(parts):
     pass  # The ENDSUB instruction is handled within handle_sub
@@ -200,17 +209,16 @@ def handle_loop(parts):
     global instruction_pointer, stacks, registers
     global start_ip
     if "LTM" not in registers or "CLI" not in registers:
-        error("LTM or CLI not initialized")
+     error(0x11)
 
     ltm = registers["LTM"]
     start_ip = instruction_pointer
     registers["CLI"] += 1
-      # Increment to move past LOOP
 
 def handle_endloop(parts):
     global instruction_pointer, stacks, registers
     if "CLI" not in registers:
-        error("LTM or CLI not initialized")
+     error(0x11)
     ltm = registers["LTM"]
     registers["CLI"] += 1
 
@@ -226,7 +234,7 @@ def handle_ops(parts):
     global instruction_pointer, stacks, curstack, registers
 
     if len(parts) < 3:
-        error("Invalid OPS syntax")
+        error(0x2)
 
     operation = parts[1].upper()
     destination = parts[2]
@@ -236,7 +244,7 @@ def handle_ops(parts):
 
     if operation == "AND":
         if len(arguments) < 2:
-            error("Invalid AND syntax")
+            error(0x2)
         result = 1
         for arg in arguments:
             if not arg:
@@ -244,7 +252,7 @@ def handle_ops(parts):
                 break
     elif operation == "OR":
         if len(arguments) < 2:
-            error("Invalid OR syntax")
+            error(0x2)
         result = 0
         for arg in arguments:
             if arg:
@@ -252,19 +260,18 @@ def handle_ops(parts):
                 break
     elif operation == "NOT":
         if len(arguments) != 1:
-            error("Invalid NOT syntax")
+            error(0x2)
         result = 1 if not arguments[0] else 0
     elif operation == "EQUAL":
         if len(arguments) != 2:
-            error("Invalid EQUAL syntax")
+            error(0x2)
         result = 1 if arguments[0] == arguments[1] else 0
     elif operation == "NEQUAL":
         if len(arguments) != 2:
-            error("Invalid NEQUAL syntax")
+            error(0x2)
         result = 1 if arguments[0] != arguments[1] else 0
     else:
-        print(f"Error: Unknown OPS operation '{operation}' on Line {instruction_pointer + 1}")
-        exit()
+        error(0x2)
 
     if result is not None:
         if destination == "&":
@@ -839,6 +846,7 @@ if len(sys.argv) != 2:
   registers[f"LIN{i}"] = get_value(sys.argv[2:][i])
 
 while instruction_pointer < len(file):
+ curline = instruction_pointer += 1
  try:
     curtime = time.perf_counter() - starttime
     line = file[instruction_pointer].split(';')[0].strip()
