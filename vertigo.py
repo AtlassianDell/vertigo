@@ -6,11 +6,38 @@ import datetime
 import re
 starttime = time.perf_counter()
 
-FIELDS_PATTERN = re.compile(r"(?:\"(.*?)\"|(\S+))")
+dump = ""
+
+settings = {
+ "intpr": False
+}
+
+def printint():
+ if settings["intpr"] == True:
+  print(registers["ODA"])
+  registers["ODA"] = None
+ else:
+  print("intpr not init")
+
+def end():
+ exit()
+
+idt = {
+ 0x0: end,
+ 0x1: printint
+}
+
+FIELDS_PATTERN = re.compile(r'\"(.*?)\"|(\S+)')
 
 class shlex:
  def split(data):
-  return [x[0] or x[1] for x in FIELDS_PATTERN.findall(data)]
+  parts = []
+  for match in FIELDS_PATTERN.finditer(data):
+   if match.group(1) is not None:
+    parts.append(f'"{match.group(1)}"')  # Re-add the quotes
+   elif match.group(2) is not None:
+    parts.append(match.group(2))
+  return parts
 
 def dumpfilename():
  now = datetime.datetime.now()
@@ -40,11 +67,26 @@ current_subroutine_code = []
 current_subroutine_ip = 0
 subroutine_return_address = None
 
+def handle_set(parts):
+ global dump
+ if len(parts) != 3:
+  dump += f"Setting failure\n" + f"{instruction_pointer + 1}  " + f"[{curtime:.4f}] "
+  exit()
+ setting = parts[1]
+ set = eval(parts[2])
+ if setting in settings:
+  settings[setting] = set
+
+def handle_int(parts):
+ intpoint = idt[eval(parts[1])]
+ intpoint()
+
 def error(p):
  print(p)
  exit()
 
 def handle_im(parts):
+ global dump
  name = f"+{parts[1]}"
  value = get_value(parts[2])
  if name in immutables:
@@ -394,8 +436,10 @@ def get_value(operand):
             return float(operand)
         except ValueError:
             pass
+    elif operand.startswith("0x"):
+        return eval(operand)
     elif operand in immutables:
-         return immutables[operand]
+        return immutables[operand]
     elif operand.startswith('"') and operand.endswith('"'):
         return operand[1:-1]
     elif operand.upper() == "TRUE":
@@ -437,7 +481,8 @@ def get_value(operand):
       txt = "\n".join(map(str, stacks[curstack]))
       return txt
     else:
-      return operand
+      print(f"Error: Invalid data type on line {instruction_pointer + 1}")
+      exit()
 def handle_new(parts):
     global instruction_pointer
     if len(parts) == 2:
@@ -782,7 +827,9 @@ instruction_handlers = {
     "WAIT": handle_wait,
     "BRING": handle_bring,
     "IMPORT": handle_import,
-    "IM": handle_im
+    "IM": handle_im,
+    "INT": handle_int,
+    "SET": handle_set
 }
 instruction_pointer = 0
 dump = ""
@@ -813,7 +860,7 @@ while instruction_pointer < len(file):
     else:
         instruction_pointer += 1
     dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
-    if registers["ODA"] is not None:
+    if registers["ODA"] is not None and settings["intpr"] == False:
         print(registers["ODA"])
         registers["ODA"] = None
  except KeyboardInterrupt:
