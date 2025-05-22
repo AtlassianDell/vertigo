@@ -57,7 +57,6 @@ registers = {
 comparison_flags = {"equal": False, "greater": False, "less": False}
 subroutines = {}  # Dictionary to store subroutine definitions
 return_stack = []  # List to store return addresses
-instruction_pointer = 0
 is_in_subroutine = False
 current_subroutine_code = []
 current_subroutine_ip = 0
@@ -119,8 +118,7 @@ def handle_pop(parts):
                     print(f"Error: No stack selected for POP on Line {instruction_pointer + 1}")
                     exit()
                 else:
-                    print(f"Error: Stack "+curstack+" is empty for POP on Line {instruction_pointer + 1}")
-                    exit()
+                    raise ValueError(f"Error: Stack {curstack} is empty for POP on Line {instruction_pointer + 1}")
             except IndexError:
                 print(f"Error: Stack "+curstack+" is empty for POP on Line {instruction_pointer + 1}")
                 exit()
@@ -773,8 +771,7 @@ for line_num, line in enumerate(file):
         if len(parts) == 2:
             label_name = parts[1]
             if label_name in labels_pass:
-                print(f"Error: Duplicate label '{label_name}' on Line {line_num + 1}")
-                exit()
+                raise NameError("Label already defined")
             labels_pass[label_name] = line_num
 
 labels = labels_pass
@@ -818,15 +815,20 @@ instruction_handlers = {
     "INT": handle_int,
     "SET": handle_set
 }
-instruction_pointer = 0
 dump = ""
+
+instruction_pointer = 0
 
 if len(sys.argv) != 2:
  for i in range(len(sys.argv[2:])):
   registers[f"LIN{i}"] = get_value(sys.argv[2:][i])
 
+def err(type,value,traceback):
+    print(f"File {sys.argv[1]} at line {instruction_pointer + 1}; STOP.\n {type.__name__}: {value}")
+
+sys.excepthook = err
+
 while instruction_pointer < len(file):
- curline = instruction_pointer + 1
  try:
     curtime = time.perf_counter() - starttime
     line = file[instruction_pointer].split(';')[0].strip()
