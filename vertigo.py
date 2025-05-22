@@ -3,11 +3,7 @@ import re
 import time
 import datetime
 starttime = time.perf_counter()
-
-labels_pass = {}
-
 dump = ""
-
 settings = {
  "intpr": False
 }
