@@ -769,6 +769,18 @@ def get_value(operand):
         print(f"Error: Invalid data type on line {instruction_pointer + 1}")
         exit()
 
+labels_pass = {}
+for line_num, line in enumerate(file):
+    line = line.split(';')[0].strip()
+    parts = shlex.split(line)
+    if parts and parts[0] == "POINT":
+        if len(parts) == 2:
+            label_name = parts[1]
+            if label_name in labels_pass:
+                print(f"Error: Duplicate label '{label_name}' on Line {line_num + 1}")
+                exit()
+            labels_pass[label_name] = line_num
+
 labels = labels_pass
 
 instruction_handlers = {
