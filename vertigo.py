@@ -45,7 +45,7 @@ labels = {}
 
 file = open(sys.argv[1]).read().split("\n")
 
-immutables = {"pi": 3.14}
+immutables = {}
 stacks = {"_loop_stack":[]}
 curstack = ""
 registers = {
@@ -67,43 +67,36 @@ def handle_new(parts):
     if len(parts) == 2:
         stacks[parts[1]] = []
     else:
-        print(f"Syntax Error: Invalid NEW syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid NEW syntax")
 
 def handle_push(parts):
     global instruction_pointer
     if len(parts) == 2:
         value_to_push = parts[1]
         if not curstack:
-            print(f"Error: No stack selected for PUSH on Line {instruction_pointer + 1}")
-            exit()
+            raise LookupError(f"No stack selected for PUSH")
         stacks[curstack].append(get_value(value_to_push))
     else:
-        print(f"Error: Invalid PUSH syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid PUSH syntax")
 
 def handle_dup(parts):
     global instruction_pointer
     if not curstack:
-        print(f"Error: No stack selected for DUP on Line {instruction_pointer + 1}")
-        exit()
+        raise LookupError(f"No stack selected for DUP")
     if stacks[curstack]:
         top_value = stacks[curstack][-1]
         stacks[curstack].append(top_value)
     else:
-        print(f"Error: Cannot DUP from an empty stack on Line {instruction_pointer + 1}")
-        exit()
+        raise ValueError(f"Cannot DUP from an empty stack")
 
 def handle_rm(parts):
     global instruction_pointer
     if curstack and stacks[curstack]:
         stacks[curstack].pop()
     elif not curstack:
-        print(f"Error: No stack selected for RM operation on Line {instruction_pointer + 1}")
-        exit()
+        raise LookupError(f"No stack selected for RM operation")
     else:
-        print(f"Error: Stack "+curstack+" is empty on Line {instruction_pointer + 1}")
-        exit()
+        raise ValueError(f"Error: Stack '{curstack}' is empty")
 
 
 def handle_pop(parts):
@@ -115,19 +108,15 @@ def handle_pop(parts):
                 if curstack and stacks[curstack]:
                     registers[reg] = stacks[curstack].pop()
                 elif not curstack:
-                    print(f"Error: No stack selected for POP on Line {instruction_pointer + 1}")
-                    exit()
+                    raise LookupError(f"No stack selected for POP")
                 else:
-                    raise ValueError(f"Error: Stack {curstack} is empty for POP on Line {instruction_pointer + 1}")
+                    raise ValueError(f"Stack '{curstack}' is empty for POP")
             except IndexError:
-                print(f"Error: Stack "+curstack+" is empty for POP on Line {instruction_pointer + 1}")
-                exit()
+                raise IndexError(f"Stack '{curstack}' is empty for POP")
         else:
-            print(f"Error: Invalid register '{reg}' for POP on Line {instruction_pointer + 1}")
-            exit()
+            raise NameError(f"Invalid register '{reg}' for POP")
     else:
-        print(f"Error: Invalid POP syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid POP syntax")
 
 def handle_math(parts):
     global instruction_pointer, stacks, curstack
@@ -149,33 +138,27 @@ def handle_math(parts):
                 if arg2 != 0:
                     result = arg1 / arg2
                 else:
-                    print(f"Error: Division by zero on Line {instruction_pointer + 1}")
-                    exit()
+                    raise ZeroDivisionError(f"Division by zero is not allowed.")
             elif op == "MOD":
                 result = arg1 % arg2
             elif op == "POW":
                 result = arg1 ** arg2
             else:
-                print(f"Error: Unknown math operation '{op}' on Line {instruction_pointer + 1}")
-                exit()
+                raise ArithmeticError(f"Unknown math operation '{op}'")
 
             if dest == "&":
                 if curstack:
                     stacks[curstack].append(result)
                 else:
-                    print(f"Error: No stack selected for '&' destination on Line {instruction_pointer + 1}")
-                    exit()
+                    raise LookupError(f"No stack selected for '&' destination")
             elif dest in registers:
                 registers[dest] = result
             else:
-                print(f"Error: Invalid destination '{dest}' on Line {instruction_pointer + 1}")
-                exit()
+                raise LookupError(f"Invalid destination '{dest}'")
         else:
-            print(f"Error: MATH operations require numerical operands on Line {instruction_pointer + 1}")
-            exit()
+            raise ArithmeticError(f"MATH operations require numerical operands")
     else:
-        print(f"Syntax Error: Invalid MATH syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid MATH syntax")
 
 def handle_reg(parts):
     global instruction_pointer
@@ -184,8 +167,7 @@ def handle_reg(parts):
         if reg_name not in registers:
             registers[reg_name] = None
     else:
-        print(f"Syntax Error: Invalid REG syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid REG syntax")
 
 def handle_jump(parts):
     global instruction_pointer
@@ -194,11 +176,9 @@ def handle_jump(parts):
         if label_to_jump in labels:
             instruction_pointer = labels[label_to_jump]
         else:
-            print(f"Error: Undefined label '{label_to_jump}' on Line {instruction_pointer + 1}")
-            exit()
+            raise LookupError(f"Undefined label '{label_to_jump}'")
     else:
-        print(f"Syntax Error: Invalid JUMP syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid JUMP syntax")
 
 def handle_jumpeq(parts):
     global instruction_pointer, comparison_flags
@@ -208,11 +188,9 @@ def handle_jumpeq(parts):
             if comparison_flags["equal"]:
                 instruction_pointer = labels[label_to_jump]
         else:
-            print(f"Error: Undefined label '{label_to_jump}' for JUMPEQ on Line {instruction_pointer + 1}")
-            exit()
+            raise LookupError(f"Undefined label '{label_to_jump}'")
     else:
-        print(f"Syntax Error: Invalid JUMPEQ syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid JUMPEQ syntax")
 
 def handle_cmp(parts):
     global instruction_pointer, comparison_flags
@@ -229,12 +207,10 @@ def handle_cmp(parts):
             comparison_flags["greater"] = (operand1 > operand2)
             comparison_flags["less"] = (operand1 < operand2)
         else:
-            print(f"Error: CMP operands must be of the same type (number or string) on Line {instruction_pointer + 1}")
-            exit()
+            raise TypeError(f"Error: CMP operands must be of the same type (number or string)")
 
     else:
-        print(f"Syntax Error: Invalid CMP syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid CMP syntax")
 
 def handle_point(parts):
     global instruction_pointer
@@ -256,8 +232,7 @@ def handle_in(parts):
             except (NameError, TypeError, SyntaxError):
                 registers["IDA"] = user_input
         except Exception as e:
-            print(f"Error processing IN instruction: {e} on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError(f"Error processing IN instruction")
     else:
         # No prompt provided, just take raw input
         user_input = input()
@@ -277,11 +252,9 @@ def handle_concat(parts):
         if dest_reg in registers:
             registers[dest_reg] = str1 + str2
         else:
-            print(f"Error: Invalid destination register '{dest_reg}' for CONCAT on Line {instruction_pointer + 1}")
-            exit()
+            raise LookupError(f"Invalid destination register '{dest_reg}' for CONCAT")
     else:
-        print(f"Syntax Error: Invalid CONCAT syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError(f"Invalid CONCAT syntax")
 
 def handle_strlen(parts):
     global instruction_pointer, registers
@@ -291,14 +264,11 @@ def handle_strlen(parts):
         if dest_reg in registers and isinstance(string, str):
             registers[dest_reg] = len(string)
         elif dest_reg not in registers:
-            print(f"Error: Invalid destination register '{dest_reg}' for STRLEN on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError(f"Invalid destination register '{dest_reg}' for STRLEN")
         else:
-            print(f"Error: STRLEN operand must be a string on Line {instruction_pointer + 1}")
-            exit()
+            raise TypeError("STRLEN operand must be a string")
     else:
-        print(f"Syntax Error: Invalid STRLEN syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid STRLEN syntax")
 
 def handle_strcmp(parts):
     global instruction_pointer, comparison_flags
@@ -310,11 +280,9 @@ def handle_strcmp(parts):
             comparison_flags["greater"] = (str1 > str2)
             comparison_flags["less"] = (str1 < str2)
         else:
-            print(f"Error: STRCMP operands must be strings on Line {instruction_pointer + 1}")
-            exit()
+            raise TypeError("STRCMP operands must be strings")
     else:
-        print(f"Syntax Error: Invalid STRCMP syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid STRCMP syntax")
 
 def handle_jumpgt(parts):
     global instruction_pointer, comparison_flags
@@ -324,11 +292,9 @@ def handle_jumpgt(parts):
             if comparison_flags["greater"]:
                 instruction_pointer = labels[label_to_jump]
         else:
-            print(f"Error: Undefined label '{label_to_jump}' for JUMPGT on Line {instruction_pointer + 1}")
-            exit()
+            raise NameError(f"Undefined label '{label_to_jump}' for JUMPGT")
     else:
-        print(f"Syntax Error: Invalid JUMPGT syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid JUMPGT syntax")
 
 def handle_jumplt(parts):
     global instruction_pointer, comparison_flags
@@ -338,11 +304,9 @@ def handle_jumplt(parts):
             if comparison_flags["less"]:
                 instruction_pointer = labels[label_to_jump]
         else:
-            print(f"Error: Undefined label '{label_to_jump}' for JUMPLT on Line {instruction_pointer + 1}")
-            exit()
+            raise NameError(f"Undefined label '{label_to_jump}' for JUMPLT")
     else:
-        print(f"Syntax Error: Invalid JUMPLT syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid JUMPLT syntax")
 
 def handle_jumpneq(parts):
     global instruction_pointer, comparison_flags
@@ -352,32 +316,26 @@ def handle_jumpneq(parts):
             if not comparison_flags["equal"]:
                 instruction_pointer = labels[label_to_jump]
         else:
-            print(f"Error: Undefined label '{label_to_jump}' for JUMPNEQ on Line {instruction_pointer + 1}")
-            exit()
+            raise NameError(f"Undefined label '{label_to_jump}' for JUMPNEQ")
     else:
-        print(f"Syntax Error: Invalid JUMPNEQ syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid JUMPNEQ syntax")
 
 def handle_swap(parts):
     global instruction_pointer
     if not curstack or len(stacks[curstack]) < 2:
-        print(f"Error: Not enough items on stack '{curstack}' for SWAP on Line {instruction_pointer + 1}")
-        exit()
+        raise IndexError(f"Not enough items on stack '{curstack}' for SWAP")
     stack = stacks[curstack]
     stack[-1], stack[-2] = stack[-2], stack[-1]
 
 def handle_pick(parts):
     global instruction_pointer
     if len(parts) != 2:
-        print(f"Syntax Error: Invalid PICK syntax. Expected 'PICK <n>' or 'PICK <register>' on Line {instruction_pointer + 1}")
-        exit()
-
+        raise SyntaxError("Invalid PICK syntax. Expected 'PICK <n>' or 'PICK <register>'")
     index_arg = parts[1]
     try:
         n = int(index_arg)
         if n < 0:
-            print(f"Error: PICK index must be non-negative on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("PICK index must be non-negative")
     except ValueError:
         # Argument is not a direct integer, check if it's a register
         if index_arg in registers:
@@ -385,16 +343,11 @@ def handle_pick(parts):
             if isinstance(reg_value, int) and reg_value >= 0:
                 n = reg_value
             else:
-                print(f"Error: Register '{index_arg}' does not contain a valid non-negative integer for PICK on Line {instruction_pointer + 1}")
-                exit()
+                raise TypeError(f"Register '{index_arg}' does not contain a valid non-negative integer for PICK")
         else:
-            print(f"Error: Invalid PICK index '{index_arg}'. Must be a non-negative integer or a valid register containing one on Line {instruction_pointer + 1}")
-            exit()
-
+            raise ValueError(f"Invalid PICK index '{index_arg}'. Must be a non-negative integer or a valid register containing one")
     if not curstack or len(stacks[curstack]) <= n:
-        print(f"Error: Not enough items on stack '{curstack}' for PICK {n} on Line {instruction_pointer + 1}")
-        exit()
-
+        raise IndexError(f"Not enough items on stack '{curstack}' for PICK {n}")
     stack = stacks[curstack]
     value_to_push = stack[-(n + 1)]
     stack.append(value_to_push)
@@ -402,15 +355,12 @@ def handle_pick(parts):
 def handle_ppick(parts):
     global instruction_pointer
     if len(parts) != 2:
-        print(f"Syntax Error: Invalid PPICK syntax. Expected 'PPICK <n>' or 'PPICK <register>' on Line {instruction_pointer + 1}")
-        exit()
-
+        raise SyntaxError("Invalid PPICK syntax. Expected 'PPICK <n>' or 'PPICK <register>'")
     index_arg = parts[1]
     try:
         n = int(index_arg)
         if n < 0:
-            print(f"Error: PPICK index must be non-negative on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("PPICK index must be non-negative")
     except ValueError:
         # Argument is not a direct integer, check if it's a register
         if index_arg in registers:
@@ -418,16 +368,11 @@ def handle_ppick(parts):
             if isinstance(reg_value, int) and reg_value >= 0:
                 n = reg_value
             else:
-                print(f"Error: Register '{index_arg}' does not contain a valid non-negative integer for PPICK on Line {instruction_pointer + 1}")
-                exit()
+                raise TypeError(f"Register '{index_arg}' does not contain a valid non-negative integer for PPICK")
         else:
-            print(f"Error: Invalid PPICK index '{index_arg}'. Must be a non-negative integer or a valid register containing one on Line {instruction_pointer + 1}")
-            exit()
-
+            raise ValueError(f"Invalid PPICK index '{index_arg}'. Must be a non-negative integer or a valid register containing one")
     if not curstack or len(stacks[curstack]) <= n:
-        print(f"Error: Not enough items on stack '{curstack}' for PPICK {n} on Line {instruction_pointer + 1}")
-        exit()
-
+        raise IndexError(f"Not enough items on stack '{curstack}' for PPICK {n}")
     stack = stacks[curstack]
     value_to_push = stack[-(n + 1)]
     stack.append(value_to_push)
@@ -435,15 +380,13 @@ def handle_ppick(parts):
 
 def handle_clear(parts):
     global instruction_pointer, stacks, curstack
-    if len(parts) == 1:  # CLEAR should not have any arguments
+    if len(parts) == 1:
         if curstack:
             stacks[curstack] = []
         else:
-            print(f"Error: No stack selected to CLEAR on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("No stack selected to CLEAR")
     else:
-        print(f"Syntax Error: Invalid CLEAR syntax. Expected 'CLEAR' on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid CLEAR syntax. Expected 'CLEAR'")
 
 def handle_rrot(parts):
     global instruction_pointer, stacks, curstack
@@ -457,15 +400,11 @@ def handle_rrot(parts):
             stack.append(bottom)
             stack.append(middle)
         elif not curstack:
-            print(f"Error: No stack selected for RROT on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("No stack selected for RROT")
         else:
-            print(f"Error: Not enough items on stack '{curstack}' for RROT on Line {instruction_pointer + 1}")
-            exit()
+            raise IndexError(f"Not enough items on stack '{curstack}' for RROT")
     else:
-        print(f"Syntax Error: Invalid RROT syntax. Expected 'RROT' on Line {instruction_pointer + 1}")
-        exit()
-
+        raise SyntaxError("Invalid RROT syntax. Expected 'RROT'")
 
 def handle_rot(parts):
     global instruction_pointer, stacks, curstack
@@ -479,14 +418,11 @@ def handle_rot(parts):
             stack.append(top)
             stack.append(bottom)
         elif not curstack:
-            print(f"Error: No stack selected for ROT on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("No stack selected for ROT")
         else:
-            print(f"Error: Not enough items on stack '{curstack}' for ROT on Line {instruction_pointer + 1}")
-            exit()
+            raise IndexError(f"Not enough items on stack '{curstack}' for ROT")
     else:
-        print(f"Syntax Error: Invalid ROT syntax. Expected 'ROT' on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid ROT syntax. Expected 'ROT'")
 
 def handle_dump(parts):
     filename = dumpfilename()
@@ -500,24 +436,19 @@ def handle_dump(parts):
         with open(filename, 'w') as dumpfile:
             dumpfile.write(f"==={sys.argv[1]} LOG DUMP===\n"+dump+"\n")
     else:
-        print("ERROR: Invalid on line "+str(instruction_pointer+1))
-        exit()
+        raise SyntaxError("Invalid DUMP syntax")
 
 def handle_ops(parts):
     global instruction_pointer, stacks, curstack, registers
-
     if len(parts) < 3:
-        error(0x2)
-
+        raise SyntaxError("Insufficient arguments for OPS")
     operation = parts[1].upper()
     destination = parts[2]
     arguments = [get_value(arg) for arg in parts[3:]]
-
     result = None
-
     if operation == "AND":
         if len(arguments) < 2:
-            error(0x2)
+            raise SyntaxError("AND operation requires at least two arguments")
         result = 1
         for arg in arguments:
             if not arg:
@@ -525,7 +456,7 @@ def handle_ops(parts):
                 break
     elif operation == "OR":
         if len(arguments) < 2:
-            error(0x2)
+            raise SyntaxError("OR operation requires at least two arguments")
         result = 0
         for arg in arguments:
             if arg:
@@ -533,38 +464,34 @@ def handle_ops(parts):
                 break
     elif operation == "NOT":
         if len(arguments) != 1:
-            error(0x2)
+            raise SyntaxError("NOT operation requires exactly one argument")
         result = 1 if not arguments[0] else 0
     elif operation == "EQUAL":
         if len(arguments) != 2:
-            error(0x2)
+            raise SyntaxError("EQUAL operation requires exactly two arguments")
         result = 1 if arguments[0] == arguments[1] else 0
     elif operation == "NEQUAL":
         if len(arguments) != 2:
-            error(0x2)
+            raise SyntaxError("NEQUAL operation requires exactly two arguments")
         result = 1 if arguments[0] != arguments[1] else 0
     else:
-        error(0x2)
-
+        raise ValueError(f"Unknown operation '{operation}'")
     if result is not None:
         if destination == "&":
             if curstack:
                 stacks[curstack].append(result)
             else:
-                print(f"Error: No stack selected for '&' destination on Line {instruction_pointer + 1}")
-                exit()
+                raise ValueError("No stack selected for '&' destination")
         elif destination in registers:
             registers[destination] = result
         else:
-            print(f"Error: Invalid destination '{destination}' on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError(f"Invalid destination '{destination}'")
 
 def handle_loop(parts):
     global instruction_pointer, stacks, registers
     global start_ip
     if "LTM" not in registers or "CLI" not in registers:
-        error(0x11)
-
+        raise RuntimeError("LOOP requires 'LTM' and 'CLI' registers to be defined")
     ltm = registers["LTM"]
     start_ip = instruction_pointer
     registers["CLI"] += 1
@@ -572,56 +499,47 @@ def handle_loop(parts):
 def handle_endloop(parts):
     global instruction_pointer, stacks, registers
     if "CLI" not in registers:
-        error(0x11)
+        raise RuntimeError("ENDLOOP requires 'CLI' register to be defined")
     ltm = registers["LTM"]
     registers["CLI"] += 1
-
     if ltm == 0 or registers["CLI"] <= ltm:
-        instruction_pointer = start_ip  # Go back to the start of the loop
+        instruction_pointer = start_ip
     else:
         registers["CLI"] = 0
         registers["LTM"] = 0
-         # Let main loop handle increment
 
 def handle_sub(parts):
     global instruction_pointer, file, subroutines
     if len(parts) < 2:
-        error(0x0)
+        raise SyntaxError("SUB requires a subroutine name")
     subroutine_name = parts[1]
     if subroutine_name in subroutines:
-        error(0x11)
-
+        raise NameError(f"Subroutine '{subroutine_name}' already defined")
     subroutines[subroutine_name] = {'code': [], 'start': instruction_pointer + 1}
-    instruction_pointer += 1  # Move past the SUB line
-
+    instruction_pointer += 1
     while instruction_pointer < len(file):
         line = file[instruction_pointer].strip()
         parts = line.split()
         if parts and parts[0].upper() == "ENDSUB":
-            instruction_pointer += 1  # Move past ENDSUB
-            return  # Exit handle_sub
+            instruction_pointer += 1
+            return
         subroutines[subroutine_name]['code'].append(line)
         instruction_pointer += 1
-    error(0x21)
+    raise SyntaxError("Missing ENDSUB for subroutine definition")
 
 def handle_endsub(parts):
-    pass  # The ENDSUB instruction is handled within handle_sub
+    pass
 
 def handle_call(parts):
     global instruction_pointer, subroutines, return_stack
     if len(parts) != 2:
-        error(0x2)
-
+        raise SyntaxError("CALL requires a subroutine name")
     subroutine_name = parts[1]
     if subroutine_name not in subroutines:
-        print(f"Error: Undefined subroutine '{subroutine_name}' on Line {instruction_pointer + 1}")
-        exit()
-
-    return_stack.append(instruction_pointer)  # Store the return address
-
+        raise NameError(f"Undefined subroutine '{subroutine_name}'")
+    return_stack.append(instruction_pointer)
     subroutine_code = subroutines[subroutine_name]['code']
     subroutine_ip = 0
-
     while subroutine_ip < len(subroutine_code):
         line = subroutine_code[subroutine_ip]
         sub_parts = shlex.split(line)
@@ -631,10 +549,9 @@ def handle_call(parts):
                 instruction_handlers[instruction](sub_parts)
             elif sub_parts[0] in stacks.keys():
                 global curstack
-                curstack = sub_parts[0] # Handle stack selection within subroutine
+                curstack = sub_parts[0]
         subroutine_ip += 1
-
-    instruction_pointer = return_stack.pop()  # Restore the instruction pointer after subroutine execution
+    instruction_pointer = return_stack.pop()
 
 def handle_wait(parts):
     sleeptime = (int(parts[1]))/100
@@ -643,16 +560,14 @@ def handle_wait(parts):
 def handle_bring(parts):
     global instruction_pointer, subroutines
     if len(parts) != 2:
-        error(0x0)
-
+        raise SyntaxError("BRING requires a library filename")
     library_filename = parts[1]
     try:
         with open(library_filename, 'r') as lib_file:
             library_content = lib_file.read()
     except FileNotFoundError:
-        error(0x10)
+        raise FileNotFoundError(f"Library file '{library_filename}' not found")
     blocks = library_content.strip().split(':')
-
     i = 0
     while i < len(blocks):
         if blocks[i].strip():
@@ -662,27 +577,27 @@ def handle_bring(parts):
             if i < len(blocks):
                 code_lines = blocks[i].strip().split('\n')
                 for line in code_lines:
-                    if line.strip():  # Ignore empty lines within the subroutine
+                    if line.strip():
                         subroutine_code.append(line)
-                subroutines[subroutine_name] = {'code': subroutine_code, 'from_library': True} # Mark as from library
+                subroutines[subroutine_name] = {'code': subroutine_code, 'from_library': True}
             else:
-                error(0x10)
+                raise SyntaxError(f"Malformed library file: missing code for subroutine '{subroutine_name}'")
         i += 1
 
 def handle_import(parts):
     try:
         mfile = open(parts[1]+".py").read()
         exec(mfile)
-    except:
-        error(0x10)
+    except Exception as e:
+        raise ImportError(f"Failed to import module '{parts[1]}': {e}")
 
 def handle_im(parts):
     global dump
     name = f"+{parts[1]}"
     value = get_value(parts[2])
     if name in immutables:
-        pass
-        dump += f"\n Immutable {name} already defined, skipping" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
+        # Pass or log that it's already defined
+        dump += f"\n Immutable {name} already defined, skipping"
     else:
         immutables[name] = value
 
@@ -693,13 +608,13 @@ def handle_int(parts):
 def handle_set(parts):
     global dump
     if len(parts) != 3:
-        dump += f"Setting failure\n" + f"{instruction_pointer + 1}  " + f"[{curtime:.4f}] "
-        error(0x1)
-        exit()
+        raise SyntaxError("SET requires a setting name and a value")
     setting = parts[1]
-    set = eval(parts[2])
+    set_value = eval(parts[2])
     if setting in settings:
-        settings[setting] = set
+        settings[setting] = set_value
+    else:
+        raise NameError(f"Unknown setting '{setting}'")
 
 def handle_stack_select(parts):
     global curstack, instruction_pointer
@@ -707,7 +622,6 @@ def handle_stack_select(parts):
 
 def get_value(operand):
     global stacks, curstack, registers, ida
-
     if operand.isdigit() or (operand.startswith("-") and operand[1:].isdigit()):
         return int(operand)
     elif operand.replace('.', '', 1).isdigit() or (operand.startswith("-") and operand[1:].replace('.', '', 1).isdigit()):
@@ -736,32 +650,27 @@ def get_value(operand):
         elif stack_reg_name in registers and isinstance(registers[stack_reg_name], (int, float)):
             return 1
         else:
-            print(f"Error: Invalid identifier '{operand}' on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError(f"Invalid identifier '{operand}'")
     elif operand.startswith("@"):
         if curstack:
             stack = stacks[curstack]
             if len(operand) > 1 and operand[1:].isdigit():
                 index_from_top = int(operand[1:])
                 if 1 <= index_from_top <= len(stack):
-                    return stack[len(stack) - index_from_top]  # Access using 1-based index from top
+                    return stack[len(stack) - index_from_top]
                 else:
-                    print(f"Error: Stack index out of bounds '{operand}' on Line {instruction_pointer + 1}")
-                    exit()
+                    raise IndexError(f"Stack index out of bounds '{operand}'")
             elif len(stack) > 0:
-                return stack[-1]  # Default to top element if no index (which is now @1)
+                return stack[-1]
             else:
-                print(f"Error: Current stack '{curstack}' is empty for '@' on Line {instruction_pointer + 1}")
-                exit()
+                raise IndexError(f"Current stack '{curstack}' is empty for '@'")
         else:
-            print(f"Error: No stack selected for '@' on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError("No stack selected for '@'")
     elif operand == "#":
         txt = "\n".join(map(str, stacks[curstack]))
         return txt
     else:
-        print(f"Error: Invalid data type on line {instruction_pointer + 1}")
-        exit()
+        raise TypeError("Invalid data type or undefined variable/literal")
 
 labels_pass = {}
 for line_num, line in enumerate(file):
@@ -827,7 +736,7 @@ def err(type,value,traceback):
     print(f"File {sys.argv[1]} at line {instruction_pointer + 1}; STOP.\n {type.__name__}: {value}")
 
 sys.excepthook = err
-
+instruction = None
 while instruction_pointer < len(file):
  try:
     curtime = time.perf_counter() - starttime
