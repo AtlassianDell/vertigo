@@ -83,34 +83,27 @@ def handle_amath(parts):
             elif op == "PHASE" and len(args) == 1 and isinstance(args[0], complex):
                 result = math.atan2(args[0].imag, args[0].real)
             else:
-                print(f"Error: Unknown or incorrect arguments for math operation '{op}' on Line {instruction_pointer + 1}")
-                exit()
+                raise ValueError(f"Unknown or incorrect arguments for math operation '{op}'")
 
             if result is not None:
                 if dest == "&":
                     if curstack:
                         stacks[curstack].append(result)
                     else:
-                        print(f"Error: No stack selected for '&' destination on Line {instruction_pointer + 1}")
-                        exit()
+                        raise ValueError("No stack selected for '&' destination")
                 elif dest in registers:
                     registers[dest] = result
-                elif dest.startswith("$"): # Assuming $ indicates an immutable constant
-                    print(f"Error: Cannot assign to immutable '{dest}' on Line {instruction_pointer + 1}")
-                    exit()
+                elif dest.startswith("$"):
+                    raise TypeError(f"Cannot assign to immutable '{dest}'")
                 else:
-                    print(f"Error: Invalid destination '{dest}' on Line {instruction_pointer + 1}")
-                    exit()
+                    raise ValueError(f"Invalid destination '{dest}'")
 
         except ValueError as e:
-            print(f"Error: Math error in operation '{op}': {e} on Line {instruction_pointer + 1}")
-            exit()
+            raise ValueError(f"Math error in operation '{op}': {e}")
         except TypeError as e:
-            print(f"Error: Type error in operation '{op}': {e} on Line {instruction_pointer + 1}")
-            exit()
+            raise TypeError(f"Type error in operation '{op}': {e}")
 
     else:
-        print(f"Syntax Error: Invalid advanced MATH syntax on Line {instruction_pointer + 1}")
-        exit()
+        raise SyntaxError("Invalid advanced MATH syntax")
 
 instruction_handlers["AMATH"] = handle_amath
