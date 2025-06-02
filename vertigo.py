@@ -593,13 +593,16 @@ def handle_import(parts):
 
 def handle_im(parts):
     global dump
-    name = f"+{parts[1]}"
-    value = get_value(parts[2])
-    if name in immutables:
-        # Pass or log that it's already defined
-        dump += f"\n Immutable {name} already defined, skipping"
+    if len(parts) != 3:
+        raise SyntaxError("IM requires an immutable name and a value")
+
+    immutable_key = "+" + parts[1] # Store with the + prefix for lookup in get_value
+    value_to_store = get_value(parts[2]) # Get the actual value to store
+
+    if immutable_key in immutables:
+        dump += f"\n Immutable {immutable_key} already defined, skipping"
     else:
-        immutables[name] = value
+        immutables[immutable_key] = value_to_store
 
 def handle_int(parts):
     intpoint = idt[eval(parts[1])]
@@ -621,56 +624,87 @@ def handle_stack_select(parts):
     curstack = parts[0]
 
 def get_value(operand):
-    global stacks, curstack, registers, ida
-    if operand.isdigit() or (operand.startswith("-") and operand[1:].isdigit()):
-        return int(operand)
-    elif operand.replace('.', '', 1).isdigit() or (operand.startswith("-") and operand[1:].replace('.', '', 1).isdigit()):
+    # 1. Handle String Literals (highest priority for quotes)
+    if operand.startswith('"') and operand.endswith('"'):
+        return operand[1:-1]
+
+    # 2. Handle Numeric Literals (try various conversions)
+    try:
+        # Integer (decimal, hex, octal, binary)
+        if operand.startswith('0x'): # Hexadecimal
+            return int(operand, 16)
+        elif operand.startswith('0o'): # Octal
+            return int(operand, 8)
+        elif operand.startswith('0b'): # Binary
+            return int(operand, 2)
+        else: # Decimal integer or float
+            # Try integer first
+            return int(operand)
+    except ValueError:
         try:
+            # If not int, try float
             return float(operand)
         except ValueError:
-            pass
-    elif operand.startswith("0x"):
-        return eval(operand)
-    elif operand in immutables:
-        return immutables[operand]
-    elif operand.startswith('"') and operand.endswith('"'):
-        return operand[1:-1]
-    elif operand.upper() == "TRUE":
-        return 1
-    elif operand.upper() == "FALSE":
-        return 0
-    elif operand in registers:
-        return registers[operand]
-    elif operand.startswith("$"):
-        stack_reg_name = operand[1:]
-        if stack_reg_name in stacks:
-            return len(stacks[stack_reg_name])
-        elif stack_reg_name in registers and isinstance(registers[stack_reg_name], str):
-            return len(registers[stack_reg_name])
-        elif stack_reg_name in registers and isinstance(registers[stack_reg_name], (int, float)):
+            pass # Not a straightforward number, continue to other checks
+
+    # 3. Handle Special Prefixes
+    # 3a. Stack Length or String/Number Length ($)
+    if operand.startswith("$"):
+        target_name = operand[1:]
+        if target_name in stacks:
+            return len(stacks[target_name])
+        elif target_name in registers and isinstance(registers[target_name], str):
+            return len(registers[target_name])
+        elif target_name in registers and isinstance(registers[target_name], (int, float)):
+            # This is a bit odd: length of a number is 1?
+            # Consider if this case is truly desired or if it should raise an error
             return 1
         else:
-            raise ValueError(f"Invalid identifier '{operand}'")
-    elif operand.startswith("@"):
-        if curstack:
-            stack = stacks[curstack]
-            if len(operand) > 1 and operand[1:].isdigit():
-                index_from_top = int(operand[1:])
-                if 1 <= index_from_top <= len(stack):
-                    return stack[len(stack) - index_from_top]
-                else:
-                    raise IndexError(f"Stack index out of bounds '{operand}'")
-            elif len(stack) > 0:
-                return stack[-1]
-            else:
-                raise IndexError(f"Current stack '{curstack}' is empty for '@'")
+            raise ValueError(f"Invalid identifier for length operator '{operand}'")
+
+    # 3b. Immutable References (+)
+    if operand.startswith("+"):
+        immutable_name = operand
+        if immutable_name in immutables:
+            return immutables[immutable_name]
         else:
-            raise ValueError("No stack selected for '@'")
-    elif operand == "#":
-        txt = "\n".join(map(str, stacks[curstack]))
-        return txt
-    else:
-        raise TypeError("Invalid data type or undefined variable/literal")
+            raise NameError(f"Undefined immutable '{immutable_name}'")
+
+    # 3c. Current Stack Top or Indexed Stack Value (@)
+    if operand.startswith("@"):
+        if not curstack:
+            raise ValueError("No stack selected for '@' reference")
+        stack = stacks[curstack]
+        if len(operand) > 1 and operand[1:].isdigit():
+            index_from_top = int(operand[1:])
+            if 1 <= index_from_top <= len(stack):
+                return stack[len(stack) - index_from_top]
+            else:
+                raise IndexError(f"Stack index out of bounds '{operand}' for stack '{curstack}'")
+        elif len(stack) > 0:
+            return stack[-1] # Default to top of stack if no index specified
+        else:
+            raise IndexError(f"Current stack '{curstack}' is empty for '@'")
+
+    # 4. Handle Special Keywords (Booleans)
+    if operand.upper() == "TRUE":
+        return 1
+    if operand.upper() == "FALSE":
+        return 0
+
+    # 5. Handle Register References
+    if operand in registers:
+        return registers[operand]
+
+    # 6. Handle Special Stack Content Dump (#)
+    if operand == "#":
+        if curstack:
+            return "\n".join(map(str, stacks[curstack]))
+        else:
+            raise ValueError("No stack selected for '#' content dump")
+
+    # If none of the above, it's an unresolvable operand
+    raise TypeError(f"Invalid data type or undefined variable/literal: '{operand}'")
 
 labels_pass = {}
 for line_num, line in enumerate(file):
