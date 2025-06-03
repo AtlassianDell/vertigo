@@ -224,7 +224,7 @@ def handle_in(parts):
             # Attempt to evaluate the prompt as a string or a variable
             # This logic seems a bit off, usually `input` takes a direct string.
             # Assuming 'parts[1]' is meant to be the prompt string itself.
-            prompt = str(prompt_str)
+            prompt = get_value(prompt_str)
             user_input = input(prompt)
             # Try to convert input to int/float if possible, otherwise keep as string
             try:
