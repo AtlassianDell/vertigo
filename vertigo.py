@@ -8,8 +8,6 @@ settings = {
  "intpr": False
 }
 
->>>if you can see this the git integration worked<<<
-
 def printint():
  if settings["intpr"] == True:
   print(registers["ODA"])
