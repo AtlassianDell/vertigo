@@ -8,6 +8,8 @@ settings = {
  "intpr": False
 }
 
+>>if you see this the pushing worked<<
+
 def printint():
  if settings["intpr"] == True:
   print(registers["ODA"])
