@@ -8,7 +8,7 @@ import shutil # For potential file operations like moving/copying on update
 import urllib.parse # For proper URL construction
 
 # --- Configuration ---
-VERTIGO_REPO_URL = "http://kq4wlc.space/projects/vertigo/"
+VERTIGO_REPO_URL = "https://kq4wlc.space/projects/vertigo/"
 LIBS_DIR_NAME = "libs"
 VERTIGO_EXE_NAME = "vertigo.exe" # Assuming the main interpreter executable name for update command
 
