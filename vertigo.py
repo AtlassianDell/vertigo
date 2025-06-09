@@ -18,7 +18,7 @@ def printint():
         print("intpr not init")
 
 def end():
-    exit()
+    sys.exit(1)
 
 idt = {
     0x0: end,
@@ -432,10 +432,10 @@ def handle_dump(parts):
     filename = dumpfilename()
     if len(parts) == 1:
         print(stacks)
-        exit()
+        
     elif parts[1] == "@":
         print(stacks[curstack])
-        exit()
+        sys.exit(1)
     elif parts[1] == "LOGS":
         with open(filename, 'w') as dumpfile:
             dumpfile.write(f"==={sys.argv[1]} LOG DUMP===\n"+dump+"\n")
@@ -763,7 +763,7 @@ while instruction_pointer < len(file):
                 instruction_pointer += 1
             else:
                 print(f"Syntax Error: Unknown instruction '{instruction}' on Line {instruction_pointer + 1}")
-                exit()
+                sys.exit(1)
         else:
             instruction_pointer += 1
         dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
@@ -772,4 +772,4 @@ while instruction_pointer < len(file):
             registers["ODA"] = None
     except KeyboardInterrupt:
         print("KeyboardInterrupt")
-        exit()
+        sys.exit(1)
