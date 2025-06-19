@@ -12,10 +12,10 @@ settings = {
 
 def printint():
     if settings["intpr"] == True:
-        print(registers["ODA"])
+        print(registers["ODA"], end='') # Modified: Removed newline
         registers["ODA"] = None
     else:
-        print("intpr not init")
+        print("intpr not init", end='') # Modified: Removed newline
 
 def end():
     sys.exit(1)
@@ -217,7 +217,6 @@ def handle_cmp(parts):
         raise SyntaxError(f"Invalid CMP syntax")
 
 def handle_point(parts):
-    global instruction_pointer
     pass # The POINT instruction is primarily for label definition, handled in the first pass
 
 def handle_in(parts):
@@ -431,9 +430,9 @@ def handle_rot(parts):
 def handle_dump(parts):
     filename = dumpfilename()
     if len(parts) == 1:
-        print(stacks)
+        print(stacks, end='') # Modified: Removed newline
     elif parts[1] == "@":
-        print(stacks[curstack])
+        print(stacks[curstack], end='') # Modified: Removed newline
         sys.exit(1)
     elif parts[1] == "LOGS":
         with open(filename, 'w') as dumpfile:
@@ -641,7 +640,8 @@ def get_value(operand):
     elif operand in immutables:
         return immutables[operand]
     elif operand.startswith('"') and operand.endswith('"'):
-        return operand[1:-1]
+        # Handle escape sequences for newlines
+        return operand[1:-1].replace('\\n', '\n')
     elif operand.upper() == "TRUE":
         return 1
     elif operand.upper() == "FALSE":
@@ -674,7 +674,7 @@ def get_value(operand):
         else:
             raise ValueError("No stack selected for '@'")
     elif operand == "#":
-        txt = "\n".join(map(str, stacks[curstack]))
+        txt = "".join(map(str, stacks[curstack])) # Modified: Removed newline join, relying on content of strings
         return txt
     else:
         raise TypeError("Invalid data type or undefined variable/literal")
@@ -761,14 +761,14 @@ while instruction_pointer < len(file):
             elif not line:
                 instruction_pointer += 1
             else:
-                print(f"Syntax Error: Unknown instruction '{instruction}' on Line {instruction_pointer + 1}")
+                print(f"Syntax Error: Unknown instruction '{instruction}' on Line {instruction_pointer + 1}", end='') # Modified: Removed newline
                 sys.exit(1)
         else:
             instruction_pointer += 1
         dump += f"{instruction} ARGS {parts[1:]}\n" + f"{instruction_pointer + 1} " + f"[{curtime:.4f}] "
         if registers["ODA"] is not None and settings["intpr"] == False:
-            print(registers["ODA"])
+            print(registers["ODA"], end='') # Modified: Removed newline
             registers["ODA"] = None
     except KeyboardInterrupt:
-        print("KeyboardInterrupt")
+        print("KeyboardInterrupt", end='') # Modified: Removed newline
         sys.exit(1)
