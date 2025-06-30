@@ -1,11 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
     ['vertigo.py'],
     pathex=[],
     binaries=[],
-    datas=["libs"],
+    datas=[("libs", "libs")], # CORRECTED: Changed "libs" to ("libs", "libs")
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
