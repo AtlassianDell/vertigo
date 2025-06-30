@@ -1,0 +1,111 @@
+name: Nightly PyInstaller Build
+
+on:
+  schedule:
+    # Run every night at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # Allows you to manually trigger the workflow from the GitHub UI
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # Allows other OS builds to continue even if one fails
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest] # Build for multiple OS
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x' # Uses the latest available Python 3.x
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller
+        # If your projects (vertigo.py, dizzypack.py) have other dependencies,
+        # ensure they are listed in a requirements.txt file in your repo root.
+        # Example: pip install -r requirements.txt
+        # If vertigo.py and dizzypack.py have *different* dependencies, you might
+        # need to list them explicitly here or use separate requirement files.
+
+    - name: Run PyInstaller for Vertigo (Linux/macOS)
+      run: pyinstaller vertigo.spec
+      shell: bash
+      if: runner.os != 'Windows'
+      
+    - name: Run PyInstaller for Vertigo (Windows)
+      run: pyinstaller vertigo.spec
+      shell: powershell
+      if: runner.os == 'Windows'
+
+    - name: Run PyInstaller for Dizzypack (Linux/macOS)
+      run: pyinstaller dizzypack.spec
+      shell: bash
+      if: runner.os != 'Windows'
+      
+    - name: Run PyInstaller for Dizzypack (Windows)
+      run: pyinstaller dizzypack.spec
+      shell: powershell
+      if: runner.os == 'Windows'
+
+    - name: Prepare combined artifacts
+      run: |
+        # Create a single directory to hold all built executables for this OS
+        mkdir -p build_artifacts
+        cp -R dist/* build_artifacts/
+      shell: bash # Use bash for consistency in artifact prep, regardless of OS
+
+    - name: Upload PyInstaller artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: nightly-${{ runner.os }}-builds
+        path: build_artifacts/ # Upload the combined directory
+        retention-days: 7
+
+    # Optional: Create a GitHub Release for nightly builds
+    # This will create ONE release per nightly run, containing artifacts for all OSes.
+    - name: Get current date for release tag
+      id: date
+      run: echo "::set-output name=date::$(date +'%Y%m%d%H%M')"
+      shell: bash
+      if: runner.os == 'Linux' # Run this step only once (e.g., on Linux runner)
+
+    - name: Create Nightly Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: nightly-${{ steps.date.outputs.date }}
+        release_name: Nightly Build ${{ steps.date.outputs.date }}
+        draft: false
+        prerelease: true
+      if: runner.os == 'Linux' # Create release only once (e.g., on Linux runner)
+
+    - name: Upload Vertigo Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/vertigo/vertigo${{ runner.os == 'Windows' && '.exe' || '' }} # Adjust path to the specific executable
+        asset_name: vertigo-${{ runner.os }}-${{ steps.date.outputs.date }}${{ runner.os == 'Windows' && '.exe' || '' }}
+        asset_content_type: application/octet-stream
+      if: runner.os == 'Linux' # Upload for all OSes, but triggered by the Linux runner after other builds are done
+
+    - name: Upload Dizzypack Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: dist/dizzypack/dizzypack${{ runner.os == 'Windows' && '.exe' || '' }} # Adjust path to the specific executable
+        asset_name: dizzypack-${{ runner.os }}-${{ steps.date.outputs.date }}${{ runner.os == 'Windows' && '.exe' || '' }}
+        asset_content_type: application/octet-stream
+      if: runner.os == 'Linux' # Upload for all OSes
