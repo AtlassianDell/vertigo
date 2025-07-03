@@ -8,7 +8,7 @@ on:
     # Allows you to manually trigger the workflow from the GitHub UI
 
 permissions:
-  contents: write # Added this permission for release creation and asset upload
+  contents: write # This line grants write permissions for creating releases and uploading assets
 
 jobs:
   build:
@@ -77,7 +77,7 @@ jobs:
       id: date
       run: |
         DATE=$(date +'%Y%m%d%H%M')
-        echo "date=$DATE" >> "$GITHUB_OUTPUT" # Updated to use GITHUB_OUTPUT
+        echo "date=$DATE" >> "$GITHUB_OUTPUT" # Updated to use GITHUB_OUTPUT for compatibility
       shell: bash
       if: runner.os == 'Linux' # Run this step only once (e.g., on Linux runner)
 
